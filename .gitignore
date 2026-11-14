@@ -1,0 +1,4 @@
+build/
+dist/
+tests/last_run.log
+.DS_Store
