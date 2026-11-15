@@ -1,4 +1,4 @@
-#N canvas 120 60 860 760 12;
+#N canvas 120 60 860 814 12;
 #X text 20 14 ipt~;
 #X text 70 14 - real-time recognition of instrumental playing techniques, f 70;
 #X text 20 44 ipt~ runs a TorchScript classifier trained with ipt_recognition on the incoming audio and outputs the most likely playing technique with the full class distribution. Inference runs on a background thread: the audio thread only queues samples., f 110;
@@ -15,7 +15,7 @@
 #X msg 580 164 confidence \$1;
 #X floatatom 710 140 6 0 0 0 - - - 0;
 #X msg 710 164 period \$1;
-#X msg 120 204 classnames;
+#X msg 122 190 classnames;
 #X obj 20 244 ipt~ dummy.ts -sensitivity 0.5;
 #X floatatom 20 314 5 0 0 0 - - - 0;
 #X symbolatom 110 314 18 0 0 0 - - - 0;
@@ -26,7 +26,7 @@
 #X floatatom 600 320 8 0 0 0 - - - 0;
 #X obj 700 320 print ipt~-classnames;
 #X text 20 340 class index, f 12;
-#X text 20 360 (-1 if below confidence), f 25;
+#X text 19 370 (-1 if below confidence), f 25;
 #X text 110 340 class name or no_confidence, f 26;
 #X text 310 370 probability distribution (always sent), f 40;
 #X text 600 344 latency (ms), f 14;
@@ -35,15 +35,15 @@
 #X text 40 474 device: CPU (default) \, MPS (Apple GPU) or CUDA. A device the platform cannot have falls back to CPU with a warning., f 105;
 #X text 20 516 Settings: send them as messages or give them as creation flags (-name value or @name value). Same names and defaults as the Max ipt~:, f 110;
 #X text 40 556 enabled (1): 0 stops feeding audio to the model, f 105;
-#X text 40 576 sensitivity (1): 0 to 1 \; smoothing time = (1 - sensitivity) x sensitivityrange \, so 1 means no smoothing, f 105;
-#X text 40 596 sensitivityrange (2000): ms \, upper bound of the smoothing time, f 105;
-#X text 40 616 threshold (-80): dB RMS gate \, quieter audio is not classified \, -80 or less disables the gate, f 105;
-#X text 40 636 window (20): ms \, length of the RMS gate window, f 105;
-#X text 40 656 confidence (0): below this top probability the left outlets give -1 and no_confidence, f 105;
-#X text 40 676 period (0): ms \, 0 sends every inference \, more than 0 sends at most once per period with the results in between integrated, f 105;
-#X text 40 696 verbose (0): 1 prints the detailed libipt error messages, f 105;
-#X text 40 716 classnames: sends "classnames <c1> <c2> ..." out of the right outlet, f 105;
-#X text 450 220 dummy.ts is libipt's 4-class test model and its classes mean nothing. Replace it with a trained model \, for example from huggingface.co/nbrochec/ipt_models, f 52;
+#X text 40 573 sensitivity (1): 0 to 1 \; smoothing time = (1 - sensitivity) x sensitivityrange \, so 1 means no smoothing, f 105;
+#X text 40 607 sensitivityrange (2000): ms \, upper bound of the smoothing time, f 105;
+#X text 40 628 threshold (-80): dB RMS gate \, quieter audio is not classified \, -80 or less disables the gate, f 105;
+#X text 40 648 window (20): ms \, length of the RMS gate window, f 105;
+#X text 40 668 confidence (0): below this top probability the left outlets give -1 and no_confidence, f 105;
+#X text 40 688 period (0): ms \, 0 sends every inference \, more than 0 sends at most once per period with the results in between integrated, f 105;
+#X text 40 728 verbose (0): 1 prints the detailed libipt error messages, f 105;
+#X text 40 753 classnames: sends "classnames <c1> <c2> ..." out of the right outlet, f 105;
+#X text 442 212 dummy.ts is libipt's 4-class test model and its classes mean nothing. Replace it with a trained model \, for example from huggingface.co/nbrochec/ipt_models, f 52;
 #X connect 5 0 17 0;
 #X connect 6 0 17 0;
 #X connect 7 0 17 0;
@@ -59,8 +59,8 @@
 #X connect 17 0 18 0;
 #X connect 17 1 19 0;
 #X connect 17 2 20 0;
+#X connect 17 3 23 0;
 #X connect 20 0 21 0;
 #X connect 21 0 22 0;
-#X connect 17 3 23 0;
 #X connect 23 0 24 0;
 #X connect 23 1 25 0;
