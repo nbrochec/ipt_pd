@@ -31,7 +31,7 @@
 #X text 310 370 probability distribution (always sent), f 40;
 #X text 600 344 latency (ms), f 14;
 #X text 20 410 Arguments: ipt~ <model.ts> [CPU | MPS | CUDA] [-setting value ...], f 110;
-#X text 40 434 model: path to a .ts file \, absolute or relative to the patch \, a [declare] path or Pd's search paths. ".ts" is added if missing., f 105;
+#X text 40 434 model: path to a .ts file \, absolute or relative to the patch \, a [declare] path \, Pd's search paths or this ipt~ folder (put your models next to this help file). ".ts" is added if missing., f 105;
 #X text 40 474 device: CPU (default) \, MPS (Apple GPU) or CUDA. A device the platform cannot have falls back to CPU with a warning., f 105;
 #X text 20 516 Settings: send them as messages or give them as creation flags (-name value or @name value). Same names and defaults as the Max ipt~:, f 110;
 #X text 40 556 enabled (1): 0 stops feeding audio to the model, f 105;

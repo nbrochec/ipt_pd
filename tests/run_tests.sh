@@ -22,7 +22,8 @@ if [ ! -f "$root/dist/ipt~/ipt~.d_arm64" ]; then
     exit 2
 fi
 
-"$pd" -nogui -noaudio -nomidi -stderr -path "$root/dist" "$here/ipt_test.pd" > "$log" 2>&1 &
+# -noprefs: an ipt~ installed in the user's Pd paths must not shadow dist/
+"$pd" -noprefs -nogui -noaudio -nomidi -stderr -path "$root/dist" "$here/ipt_test.pd" > "$log" 2>&1 &
 pid=$!
 # watchdog: kill pd after 40 s; exits by itself as soon as pd is gone
 ( i=0
@@ -107,7 +108,12 @@ check "I (threshold 0 + window 50 at 2 s): gated after the change" \
 # worker is running (pd quit does not free the patches; see stop_all_workers).
 check "J (MPS): outputs came out" test "$(count 'J-index:')" -gt 0
 
-check "F: missing model refused at creation" grep -q 'model file not found: does_not_exist' "$log"
+check "K ([ipt~ dummy]): found in the ipt~ folder, .ts added" \
+    grep -q 'ipt~: model loaded, 4 classes (.*/dist/ipt~/dummy.ts)' "$log"
+check "K ([ipt~ dummy]): outputs came out" test "$(count 'K-index:')" -gt 0
+
+check "F: missing model refused at creation, with the folders searched" \
+    grep -q 'model file not found: does_not_exist (looked in the patch folder .*/tests, in Pd.s search paths and in the ipt~ folder .*/dist/ipt~)' "$log"
 check "G: deletion while loading and while running survived" grep -q '^MARK-clear2: bang' "$log"
 check "no worker error reported" sh -c "! grep -q 'ipt~: model architecture\|ipt~: cannot initialise' '$log'"
 

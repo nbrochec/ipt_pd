@@ -19,7 +19,9 @@ Pd's search path). Pd finds `ipt~/ipt~.d_arm64` by itself. The folder holds
 the external, `libipt.dylib` and the libtorch dylibs it needs, the help patch
 and `dummy.ts`, libipt's 4-class test model.
 
-Pretrained models (electric guitar, flute, trumpet) are on
+Models copied into this `ipt~` folder are found by name from any patch,
+e.g. `[ipt~ flute_ircam]`. Pretrained models (electric guitar, flute,
+trumpet) are on
 [Hugging Face](https://huggingface.co/nbrochec/ipt_models), with their cards in
 [ipt_models](https://github.com/DYCI2/ipt_models).
 
@@ -33,9 +35,12 @@ Pretrained models (electric guitar, flute, trumpet) are on
 index    name        distribution info (latency, classnames)
 ```
 
-- Arguments: `ipt~ <model.ts> [CPU|MPS|CUDA]`. The model path is absolute or
-  relative to the patch, a `[declare]` path or Pd's search paths; `.ts` is
-  added if missing. A device the platform cannot have falls back to CPU.
+- Arguments: `ipt~ <model.ts> [CPU|MPS|CUDA]`. The model path is absolute
+  (`~/` works) or a name looked up, in this order, next to the patch, in
+  `[declare]` paths and Pd's search paths, and in the `ipt~` folder itself:
+  models copied next to the external are found by name, like models in the
+  Max package's `help` folder. `.ts` is added if missing. A device the
+  platform cannot have falls back to CPU.
 - Settings are messages (`sensitivity 0.5`) or creation flags
   (`-sensitivity 0.5`, `@sensitivity 0.5` also works):
 

@@ -45,6 +45,8 @@
 #X obj 20 950 print MARK-thr-check;
 #X obj 700 500 ipt~ ../libipt/tests/dummy.ts MPS;
 #X obj 700 540 print J-index;
+#X obj 700 600 ipt~ dummy -verbose 1;
+#X obj 700 640 print K-index;
 #X connect 0 0 1 0;
 #X connect 2 0 3 0;
 #X connect 3 0 4 0;
@@ -86,3 +88,5 @@
 #X connect 40 0 41 0;
 #X connect 2 0 42 0;
 #X connect 42 0 43 0;
+#X connect 2 0 44 0;
+#X connect 44 0 45 0;

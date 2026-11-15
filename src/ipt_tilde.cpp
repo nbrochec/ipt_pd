@@ -696,8 +696,15 @@ static bool is_regular_file(const std::string& path) {
     return stat(path.c_str(), &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
-// Absolute path, "~/..." or a name found next to the patch, through [declare]
-// or in Pd's search paths. ".ts" is appended when missing.
+// Folder ipt~ was loaded from (e.g. ~/Documents/Pd/externals/ipt~), or "".
+static std::string external_dir() {
+    const char* dir = ipt_class ? class_gethelpdir(ipt_class) : nullptr;
+    return dir ? dir : "";
+}
+
+// Absolute path, "~/..." or a name found next to the patch, through [declare],
+// in Pd's search paths or, last, in the ipt~ folder itself (as models in the
+// Max package's help folder are found by name). ".ts" is appended when missing.
 static bool resolve_model_path(t_canvas* canvas, std::string name, std::string& out) {
     if (name.size() < 3 || name.compare(name.size() - 3, 3, ".ts") != 0) {
         name += ".ts";
@@ -715,10 +722,17 @@ static bool resolve_model_path(t_canvas* canvas, std::string name, std::string& 
     char dir[MAXPDSTRING];
     char* base = nullptr;
     const int fd = canvas_open(canvas, name.c_str(), "", dir, &base, MAXPDSTRING, 1);
-    if (fd < 0) return false;
-    sys_close(fd);
-    out = std::string(dir) + "/" + base;
-    return true;
+    if (fd >= 0) {
+        sys_close(fd);
+        out = std::string(dir) + "/" + base;
+        return true;
+    }
+    const std::string own_dir = external_dir();
+    if (!own_dir.empty() && is_regular_file(own_dir + "/" + name)) {
+        out = own_dir + "/" + name;
+        return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -733,9 +747,18 @@ static void* ipt_new(t_symbol*, int argc, t_atom* argv) {
     }
 
     std::string model_path;
-    if (!resolve_model_path(canvas_getcurrent(), argv[0].a_w.w_symbol->s_name, model_path)) {
-        pd_error(nullptr, "ipt~: model file not found: %s (looked next to the patch and in Pd's search paths)",
-                 argv[0].a_w.w_symbol->s_name);
+    t_canvas*   canvas = canvas_getcurrent();
+    const char* model_arg = argv[0].a_w.w_symbol->s_name;
+    if (!resolve_model_path(canvas, model_arg, model_path)) {
+        if (sys_isabsolutepath(model_arg) || (model_arg[0] == '~' && model_arg[1] == '/')) {
+            pd_error(nullptr, "ipt~: model file not found: %s", model_arg);
+        } else {
+            // Say where it looked: an unsaved patch's folder is often not the expected one.
+            const t_symbol* patch_dir = canvas ? canvas_getdir(canvas) : nullptr;
+            pd_error(nullptr, "ipt~: model file not found: %s (looked in the patch folder %s, "
+                              "in Pd's search paths and in the ipt~ folder %s)",
+                     model_arg, patch_dir ? patch_dir->s_name : "?", external_dir().c_str());
+        }
         return nullptr;
     }
 
