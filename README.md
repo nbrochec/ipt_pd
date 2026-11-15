@@ -25,6 +25,18 @@ trumpet) are on
 [Hugging Face](https://huggingface.co/nbrochec/ipt_models), with their cards in
 [ipt_models](https://github.com/DYCI2/ipt_models).
 
+### plugdata
+
+`ipt~` works in the plugdata standalone app (tested with plugdata 0.9.3,
+which embeds Pd 0.55.2, on macOS Apple Silicon). Copy the `ipt~` folder into
+`~/Documents/plugdata/Externals/`, which is in plugdata's default search
+paths, then restart plugdata.
+
+It does not work in the plugdata plugins (AU, VST3, CLAP, LV2): they build Pd
+for multiple instances with hidden symbols, so no compiled external can load
+there. Using `ipt~` in the plugins would mean rebuilding plugdata with the
+external, as plugdata's README explains.
+
 ## Use
 
 ```
