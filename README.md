@@ -70,7 +70,8 @@ Differences with the Max `ipt~`:
 
 Inference runs on a background thread, so Pd's `-batch` (faster than real
 time) mode is not supported: the model would not keep up and audio would be
-dropped.
+dropped. Deleting an `ipt~` never blocks Pd: the model is unloaded in the
+background, and quitting Pd waits for it.
 
 ## Build
 
@@ -98,6 +99,16 @@ Headless test (needs Pd in `/Applications`):
 ```bash
 tests/run_tests.sh
 ```
+
+How long deleting an `ipt~` blocks Pd while a real model loads (should be
+well under 1 ms):
+
+```bash
+tests/free_latency.sh /path/to/flute_ircam.ts
+```
+
+Keep to the Pd 0.55 API: plugdata 0.9.3 embeds Pd 0.55.2, and every Pd
+symbol the external uses must exist there.
 
 ## Credits and license
 

@@ -33,7 +33,7 @@
 #X obj 120 680 print MARK-clear2;
 #X obj 20 730 delay 6000;
 #X obj 20 760 t b b;
-#X msg 20 790 \; pd quit;
+#X msg 20 790 \; pd-sub4 obj 10 10 ipt~ ../libipt/tests/dummy.ts MPS \; pd-sub4 clear \; pd quit;
 #X obj 120 790 print MARK-done;
 #X obj 700 300 ipt~ ../libipt/tests/dummy.ts -sensitivity 0;
 #X obj 700 340 print H-dist;
@@ -47,6 +47,15 @@
 #X obj 700 540 print J-index;
 #X obj 700 600 ipt~ dummy -verbose 1;
 #X obj 700 640 print K-index;
+#X obj 20 1000 t b b b;
+#X obj 20 1060 realtime;
+#X msg 60 1030 \; pd-sub3 obj 10 10 ipt~ ../libipt/tests/dummy.ts \; pd-sub3 clear;
+#N canvas 0 0 300 200 sub3 0;
+#X restore 300 1000 pd sub3;
+#X obj 20 1090 print FREE-ms;
+#X obj 20 970 delay 1000;
+#N canvas 0 0 300 200 sub4 0;
+#X restore 400 1000 pd sub4;
 #X connect 0 0 1 0;
 #X connect 2 0 3 0;
 #X connect 3 0 4 0;
@@ -90,3 +99,9 @@
 #X connect 42 0 43 0;
 #X connect 2 0 44 0;
 #X connect 44 0 45 0;
+#X connect 0 0 51 0;
+#X connect 51 0 46 0;
+#X connect 46 2 47 0;
+#X connect 46 1 48 0;
+#X connect 46 0 47 1;
+#X connect 47 0 50 0;

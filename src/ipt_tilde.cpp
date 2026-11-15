@@ -36,7 +36,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <condition_variable>
 #include <mutex>
+#include <system_error>
 #include <string>
 #include <sys/stat.h>
 #include <thread>
@@ -179,8 +181,9 @@ private:
 enum LoadState : int { kLoading = 0, kReady = 1, kFailed = 2 };
 
 // ---------------------------------------------------------------------------
-// Object state. Allocated with new, owned by t_ipt, freed in ipt_free after
-// the worker has been joined.
+// Object state. Allocated with new in ipt_new. ipt_free hands it to a
+// detached cleanup thread, which joins the worker, destroys the handle and
+// deletes it, so that freeing never blocks the Pd thread.
 // ---------------------------------------------------------------------------
 struct IptState {
     // --- set once in ipt_new, then read-only ---
@@ -208,6 +211,10 @@ struct IptState {
 
     // --- worker thread ---
     std::thread worker;
+    // Protected by live_mutex(): set by whoever takes charge of joining the
+    // worker (the cleanup thread started by ipt_free, or stop_all_workers when
+    // Pd exits), so that it is joined exactly once.
+    bool join_claimed = false;
 
     // --- Pd thread only ---
     double                  sensitivity = kDefaultSensitivity;
@@ -235,11 +242,29 @@ static_assert(std::atomic<double>::is_always_lock_free, "atomic<double> must be 
 // behaviour. An atexit handler stops and joins every live worker first.
 //
 // atexit handlers and static destructors run in reverse order of
-// registration, and torch creates some statics lazily (the MPS allocator, the
-// CPU thread pool) on the worker. So the handler is registered at setup and
-// again after the first inference on each device, which puts it after those
-// statics and makes it run before they are destroyed. The registry is
-// allocated once and never freed, so it outlives every destructor.
+// registration, and torch creates some statics lazily on the worker, while
+// loading a model (the TorchScript builtin registry) or running it (the MPS
+// allocator, the CPU thread pool). So the handler is registered at setup and
+// again by every worker after its model load and after its first inference,
+// which puts it after those statics and makes it run before they are
+// destroyed. The registry is allocated once and never freed, so it outlives
+// every destructor.
+//
+// Known limit: statics created by a load that is still running when exit()
+// starts are registered after the handler and destroyed before it runs. So
+// quitting during the first load of a model kind in the process (a patch just
+// opened, or an object just created or deleted) can still crash on exit. Once
+// a model of that kind has loaded, later loads create nothing new and are
+// waited for.
+//
+// Freeing an object. ipt_free must not block the Pd thread: in plugdata the
+// scheduler runs in the audio callback under sys_lock, and joining a worker
+// that is loading a model stalls the audio for the whole load (measured: about
+// 150 ms on CPU, up to 750 ms on MPS with a real model). So ipt_free only
+// raises the stop flag and starts a detached cleanup thread that joins the
+// worker, destroys the handle and deletes the state. The live registry keeps
+// the state until then, and stop_all_workers waits for every cleanup thread
+// before torch's statics are destroyed.
 // ---------------------------------------------------------------------------
 
 std::mutex& live_mutex() {
@@ -252,27 +277,66 @@ std::vector<IptState*>& live_states() {
     return *v;
 }
 
+// Detached cleanup threads still running, protected by live_mutex().
+int& cleanups_running() {
+    static auto* n = new int(0);
+    return *n;
+}
+
+std::condition_variable& cleanups_done() {
+    static auto* cv = new std::condition_variable;
+    return *cv;
+}
+
 void stop_all_workers() {
-    std::lock_guard<std::mutex> lock(live_mutex());
+    std::unique_lock<std::mutex> lock(live_mutex());
+    // Stop every worker; join those no cleanup thread is in charge of.
+    std::vector<IptState*> to_join;
     for (IptState* st : live_states()) {
         st->stop.store(true, std::memory_order_release);
+        if (!st->join_claimed) {
+            st->join_claimed = true;
+            to_join.push_back(st);
+        }
     }
-    for (IptState* st : live_states()) {
+    // Joined without the lock, so that cleanup threads can finish meanwhile.
+    // These states cannot be deleted: only a cleanup thread deletes a state,
+    // and only one whose join it claimed.
+    lock.unlock();
+    for (IptState* st : to_join) {
         if (st->worker.joinable() && st->worker.get_id() != std::this_thread::get_id()) {
             st->worker.join();
         }
     }
-    // The handles are not destroyed: the process is exiting and torch is
-    // being torn down.
+    // Wait for the objects freed just before exit to finish their cleanup.
+    lock.lock();
+    cleanups_done().wait(lock, [] { return cleanups_running() == 0; });
+    // The handles of the live objects are not destroyed: the process is
+    // exiting and torch is about to be torn down.
 }
 
-// Called by a worker after its first inference; once per device.
-void register_exit_hook_after_first_inference(ipt_device device) {
-    static std::atomic<bool> done[3] = {};
-    const int d = static_cast<int>(device);
-    if (d >= 0 && d < 3 && !done[d].exchange(true)) {
-        std::atexit(stop_all_workers);
+// Cleanup thread started by ipt_free (or called directly if no thread could
+// be started). Never touches the t_ipt, which Pd has already freed.
+void cleanup_state(IptState* st) {
+    if (st->worker.joinable()) {
+        st->worker.join();
     }
+    ipt_destroy(st->clf);
+
+    std::lock_guard<std::mutex> lock(live_mutex());
+    auto& live = live_states();
+    live.erase(std::remove(live.begin(), live.end(), st), live.end());
+    delete st;
+    if (--cleanups_running() == 0) {
+        cleanups_done().notify_all();
+    }
+}
+
+// Called by every worker after its model load and after its first inference,
+// so that the handler is registered after the statics torch created on the
+// way (stop_all_workers is idempotent; two registrations per object).
+void register_exit_hook() {
+    std::atexit(stop_all_workers);
 }
 
 } // namespace
@@ -327,6 +391,7 @@ static void worker_main(IptState* st) {
         ipt_get_class_name(clf, i, buf, sizeof(buf));
         st->class_names.emplace_back(buf);
     }
+    register_exit_hook();  // after the statics this load created
     st->load_state.store(kReady, std::memory_order_release);
 
     std::vector<double> buffer(kAudioFifoSize);
@@ -390,7 +455,7 @@ static void worker_main(IptState* st) {
                     st->results.push(result);  // dropped if the Pd side is 128 results behind
                     if (first_inference) {
                         first_inference = false;
-                        register_exit_hook_after_first_inference(st->device);
+                        register_exit_hook();
                     }
                 }
             }
@@ -840,20 +905,26 @@ static void* ipt_new(t_symbol*, int argc, t_atom* argv) {
 
 static void ipt_free(t_ipt* x) {
     if (IptState* st = x->x_st) {
+        x->x_st = nullptr;
+        // Returns at once: the worker is joined and the handle destroyed on a
+        // detached thread (see "Freeing an object" above).
+        st->stop.store(true, std::memory_order_release);
+        bool cleanup_here = false;
         {
             std::lock_guard<std::mutex> lock(live_mutex());
-            auto& live = live_states();
-            live.erase(std::remove(live.begin(), live.end(), st), live.end());
+            if (!st->join_claimed) {  // otherwise Pd is exiting and stop_all_workers has it
+                st->join_claimed = true;
+                ++cleanups_running();
+                try {
+                    std::thread(cleanup_state, st).detach();
+                } catch (const std::system_error&) {
+                    cleanup_here = true;  // no thread available: fall back to blocking
+                }
+            }
         }
-        // Never destroy the handle while the worker uses it. If the model is
-        // still loading, this waits for the load to finish (as in Max).
-        st->stop.store(true, std::memory_order_release);
-        if (st->worker.joinable()) {
-            st->worker.join();
+        if (cleanup_here) {
+            cleanup_state(st);
         }
-        ipt_destroy(st->clf);
-        delete st;
-        x->x_st = nullptr;
     }
     if (x->x_deliver_clock) clock_free(x->x_deliver_clock);
     if (x->x_period_clock)  clock_free(x->x_period_clock);

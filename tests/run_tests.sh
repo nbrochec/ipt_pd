@@ -115,6 +115,13 @@ check "K ([ipt~ dummy]): outputs came out" test "$(count 'K-index:')" -gt 0
 check "F: missing model refused at creation, with the folders searched" \
     grep -q 'model file not found: does_not_exist (looked in the patch folder .*/tests, in Pd.s search paths and in the ipt~ folder .*/dist/ipt~)' "$log"
 check "G: deletion while loading and while running survived" grep -q '^MARK-clear2: bang' "$log"
+# dummy.ts loads in about 1 ms, so this only guards against gross blocking;
+# tests/free_latency.sh measures it with a real model.
+free_ms=$(grep '^FREE-ms:' "$log" | awk '{ print $2 }')
+check "deleting while loading returns at once (${free_ms:-?} ms)" \
+    awk -v t="${free_ms:-999}" 'BEGIN { exit !(t < 20) }'
+# The quit message also deletes an MPS instance right before "pd quit", so
+# "pd exited normally" covers exiting while a cleanup thread is running.
 check "no worker error reported" sh -c "! grep -q 'ipt~: model architecture\|ipt~: cannot initialise' '$log'"
 
 echo
