@@ -10,14 +10,10 @@ This is the Pd port of the Max external from
 and outputs are the same, and both use the same models through
 [libipt](https://github.com/nbrochec/libipt).
 
-Status: first iteration, macOS Apple Silicon only.
-
 ## Install
 
 Copy the `ipt~` folder into `~/Documents/Pd/externals/` (or any folder in
-Pd's search path). Pd finds `ipt~/ipt~.d_arm64` by itself. The folder holds
-the external, `libipt.dylib` and the libtorch dylibs it needs, the help patch
-and `dummy.ts`, libipt's 4-class test model.
+Pd's search path).
 
 Models copied into this `ipt~` folder are found by name from any patch,
 e.g. `[ipt~ flute_ircam]`. Pretrained models (electric guitar, flute,
@@ -32,10 +28,7 @@ which embeds Pd 0.55.2, on macOS Apple Silicon). Copy the `ipt~` folder into
 `~/Documents/plugdata/Externals/`, which is in plugdata's default search
 paths, then restart plugdata.
 
-It does not work in the plugdata plugins (AU, VST3, CLAP, LV2): they build Pd
-for multiple instances with hidden symbols, so no compiled external can load
-there. Using `ipt~` in the plugins would mean rebuilding plugdata with the
-external, as plugdata's README explains.
+For the time being, it does not work in the plugdata plugins (AU, VST3, CLAP, LV2).
 
 ## Use
 
@@ -72,7 +65,7 @@ index    name        distribution info (latency, classnames)
   (`no_confidence` below `confidence`), distribution (always sent), info
   (`latency <ms>` after each output). As usual in Pd they fire right to left.
 
-Differences with the Max `ipt~`:
+<!-- Differences with the Max `ipt~`:
 
 - the object is not created when the model file cannot be found;
 - outputs fire right to left (Max sends them left to right);
@@ -83,7 +76,7 @@ Differences with the Max `ipt~`:
 Inference runs on a background thread, so Pd's `-batch` (faster than real
 time) mode is not supported: the model would not keep up and audio would be
 dropped. Deleting an `ipt~` never blocks Pd: the model is unloaded in the
-background, and quitting Pd waits for it.
+background, and quitting Pd waits for it. -->
 
 ## Build
 
@@ -124,5 +117,5 @@ symbol the external uses must exist there.
 
 ## Credits and license
 
-ipt~ by Nicolas Brochec, based on original work by Nicolas Brochec, Joakim
-Borg and Marco Fiorini, IRCAM, RepMus REACH team. CC-BY-NC-4.0, as ipt_tilde.
+ipt for Pd is based on the original work by Nicolas Brochec, Joakim
+Borg and Marco Fiorini, IRCAM, RepMus REACH team. CC-BY-NC-4.0, here: [ipt_tilde](https://github.com/DYCI2/ipt_tilde)
